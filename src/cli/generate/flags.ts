@@ -25,6 +25,7 @@ export interface GenerateFlags {
   dryRun: boolean;
   includeTools?: string[];
   excludeTools?: string[];
+  set?: Record<string, string>;
 }
 
 export function parseGenerateFlags(args: string[]): GenerateFlags {
@@ -44,6 +45,7 @@ export function parseGenerateFlags(args: string[]): GenerateFlags {
   let dryRun = false;
   let includeTools: string[] | undefined;
   let excludeTools: string[] | undefined;
+  let set: Record<string, string> | undefined;
 
   let index = 0;
   while (index < args.length) {
@@ -141,6 +143,17 @@ export function parseGenerateFlags(args: string[]): GenerateFlags {
       args.splice(index, 1);
       continue;
     }
+    if (token === '--set') {
+      const value = expectValue(token, args[index + 1]);
+      const eqIndex = value.indexOf('=');
+      if (eqIndex < 1) {
+        throw new Error("--set requires KEY=value format.");
+      }
+      if (!set) set = {};
+      set[value.slice(0, eqIndex)] = value.slice(eqIndex + 1);
+      args.splice(index, 2);
+      continue;
+    }
     if (token.startsWith('--')) {
       throw new Error(`Unknown flag '${token}' for generate-cli.`);
     }
@@ -186,6 +199,7 @@ export function parseGenerateFlags(args: string[]): GenerateFlags {
     dryRun,
     includeTools,
     excludeTools,
+    set,
   };
 }
 

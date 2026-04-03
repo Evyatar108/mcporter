@@ -2,7 +2,20 @@
 
 ## [0.8.2] - Unreleased
 
-- Nothing yet.
+### CLI — `generate-cli`
+- **Always bracket notation**: Generated CLIs now use `args["property"]` instead of `args.property` for tool arguments, fixing hyphenated property names like `cluster-uri` that broke with dot notation.
+- **`--set key=value`**: New repeatable flag for `generate-cli` that bakes default values into generated CLIs. Required options with defaults become optional. Example: `--set cluster-uri=https://... --set database=MyDb`.
+- **Daemon-aware runtime**: Generated CLIs now use `createDaemonAwareRuntime()` instead of `createRuntime()`. Tries daemon socket first → auto-starts daemon if not running → falls back to direct spawn. Config written to `~/.mcporter/generated/<name>/mcporter.json`.
+- **Default keep-alive lifecycle**: Generated server definitions default to `lifecycle: { mode: 'keep-alive' }` for optimal daemon reuse.
+
+### CLI — `config add`
+- **`--lifecycle` flag**: New flag for `mcporter config add` accepting `ephemeral`, `keep-alive`, or `keep-alive:<ms>`. Example: `--lifecycle keep-alive:60000`.
+
+### Bundling
+- **Fix rolldown platform**: Added `platform: 'node'` to rolldown config, fixing Node.js built-in resolution in bundled CLIs.
+
+### API
+- **`createDaemonAwareRuntime()`**: New public export for daemon-aware runtime creation. Used by generated CLIs and available for programmatic use.
 
 ## [0.8.1] - 2026-03-29
 

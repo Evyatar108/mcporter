@@ -64,6 +64,7 @@ async function bundleWithRolldown({
   const bundle = await rolldownImpl({
     input: sourcePath,
     treeshake: false,
+    platform: 'node',
     plugins,
     onLog(level, log, handler) {
       if (typeof (log as { code?: string }).code === 'string' && (log as { code?: string }).code === 'EVAL') {

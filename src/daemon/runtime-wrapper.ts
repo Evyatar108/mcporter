@@ -135,6 +135,83 @@ class KeepAliveRuntime implements Runtime {
   }
 }
 
+/**
+ * Create a daemon-aware runtime for generated CLIs.
+ * Tries the daemon first -> auto-starts if not running -> falls back to direct spawn.
+ * Config path determines daemon identity: generated CLIs write their embedded server
+ * definition to ~/.mcporter/generated/<name>/mcporter.json on first run.
+ */
+export async function createDaemonAwareRuntime(options: {
+  servers: Parameters<typeof import('../runtime.js').createRuntime>[0]['servers'];
+  configPath?: string;
+  name?: string;
+}): Promise<Runtime> {
+  const { createRuntime } = await import('../runtime.js');
+  const base = await createRuntime({ servers: options.servers });
+
+  // Try to connect to daemon
+  try {
+    const { DaemonClient } = await import('./client.js');
+
+    // Determine config path for daemon identity
+    let configPath = options.configPath;
+    if (!configPath && options.name) {
+      const os = await import('node:os');
+      const path = await import('node:path');
+      const fs = await import('node:fs/promises');
+      configPath = path.join(os.default.homedir(), '.mcporter', 'generated', options.name, 'mcporter.json');
+      // Write embedded server definition if it doesn't exist
+      await fs.mkdir(path.dirname(configPath), { recursive: true });
+      try {
+        await fs.access(configPath);
+      } catch {
+        const config = { mcpServers: {} as Record<string, unknown> };
+        for (const server of options.servers) {
+          config.mcpServers[(server as any).name ?? options.name] = server;
+        }
+        await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf8');
+      }
+    }
+
+    if (!configPath) {
+      return base;
+    }
+
+    const { resolveDaemonPaths } = await import('./client.js');
+    const daemonPaths = resolveDaemonPaths(configPath);
+    const client = new DaemonClient({ configPath, rootDir: undefined });
+
+    // Check if daemon is alive
+    try {
+      await client.status();
+    } catch {
+      // Try to auto-start daemon
+      try {
+        const { launchDaemonDetached } = await import('./launch.js');
+        launchDaemonDetached({ configPath, socketPath: daemonPaths.socketPath, metadataPath: daemonPaths.metadataPath });
+        // Wait briefly for daemon to start
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        await client.status();
+      } catch {
+        // Daemon unavailable -- fall back to direct spawn
+        return base;
+      }
+    }
+
+    // Build keep-alive server set from definitions
+    const keepAliveServers = new Set<string>();
+    for (const server of options.servers) {
+      const name = (server as any).name;
+      if (name) keepAliveServers.add(name);
+    }
+
+    return createKeepAliveRuntime(base, { daemonClient: client, keepAliveServers });
+  } catch {
+    // Daemon module not available or failed -- fall back to direct spawn
+    return base;
+  }
+}
+
 const NON_FATAL_CODES = new Set([ErrorCode.InvalidRequest, ErrorCode.MethodNotFound, ErrorCode.InvalidParams]);
 
 function shouldRestartDaemonServer(error: unknown): boolean {

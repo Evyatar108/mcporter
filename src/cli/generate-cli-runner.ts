@@ -78,5 +78,6 @@ export async function handleGenerateCli(args: string[], globalFlags: FlagMap): P
     minify: parsed.minify ?? false,
     includeTools: parsed.includeTools,
     excludeTools: parsed.excludeTools,
+    defaults: parsed.set,
   });
 }

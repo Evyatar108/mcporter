@@ -22,6 +22,7 @@ export type AddFlags = {
   oauthRedirectUrl?: string;
   auth?: string;
   copyFrom?: string;
+  lifecycle?: string;
   persistPath?: string;
   scope?: 'home' | 'project';
   dryRun?: boolean;
@@ -159,6 +160,10 @@ function extractAddFlags(args: string[]): AddFlags {
         flags.copyFrom = requireValue(args, index, token);
         args.splice(index, 2);
         continue;
+      case '--lifecycle':
+        flags.lifecycle = requireValue(args, index, token);
+        args.splice(index, 2);
+        continue;
       case '--persist':
         flags.persistPath = requireValue(args, index, token);
         args.splice(index, 2);
@@ -289,6 +294,22 @@ function applyFlagsToEntry(entry: RawEntry, flags: AddFlags): void {
   }
   if (flags.auth) {
     entry.auth = flags.auth;
+  }
+  if (flags.lifecycle) {
+    const lifecycleValue = flags.lifecycle;
+    if (lifecycleValue === 'ephemeral') {
+      entry.lifecycle = { mode: 'ephemeral' };
+    } else if (lifecycleValue === 'keep-alive') {
+      entry.lifecycle = { mode: 'keep-alive' };
+    } else if (lifecycleValue.startsWith('keep-alive:')) {
+      const ms = parseInt(lifecycleValue.slice('keep-alive:'.length), 10);
+      if (isNaN(ms) || ms <= 0) {
+        throw new CliUsageError('--lifecycle keep-alive:<ms> requires a positive integer.');
+      }
+      entry.lifecycle = { mode: 'keep-alive', idleTimeoutMs: ms };
+    } else {
+      throw new CliUsageError('--lifecycle must be "ephemeral", "keep-alive", or "keep-alive:<ms>".');
+    }
   }
 }
 

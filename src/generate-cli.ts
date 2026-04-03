@@ -27,6 +27,7 @@ export interface GenerateCliOptions {
   readonly compile?: boolean | string;
   readonly includeTools?: string[];
   readonly excludeTools?: string[];
+  readonly defaults?: Record<string, string>;
 }
 
 // generateCli produces a standalone CLI (and optional bundle/binary) for a given MCP server.
@@ -108,6 +109,7 @@ export async function generateCli(
     tools: toolMetadata,
     generator,
     metadata: embeddedMetadata,
+    defaults: options.defaults,
   });
 
   let bundlePath: string | undefined;

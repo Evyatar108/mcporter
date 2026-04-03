@@ -10,5 +10,6 @@ export type {
   ServerToolInfo,
 } from './runtime.js';
 export { callOnce, createRuntime } from './runtime.js';
+export { createDaemonAwareRuntime } from './daemon/runtime-wrapper.js';
 export type { ServerProxyOptions } from './server-proxy.js';
 export { createServerProxy } from './server-proxy.js';
