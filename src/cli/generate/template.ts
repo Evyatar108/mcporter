@@ -63,7 +63,7 @@ export function renderTemplate({
 }: TemplateInput): string {
   const imports = [
     "import { Command } from 'commander';",
-    "import { createRuntime, createServerProxy, createDaemonAwareRuntime } from 'mcporter';",
+    "import { createServerProxy, createDaemonAwareRuntime } from 'mcporter';",
     "import { createCallResult } from 'mcporter';",
   ].join('\n');
   // Default lifecycle to keep-alive for generated CLIs
@@ -263,7 +263,7 @@ function buildMetadataPayload() {
 \t};
 }
 
-async function ensureRuntime(): Promise<Awaited<ReturnType<typeof createRuntime>>> {
+async function ensureRuntime(): Promise<Awaited<ReturnType<typeof createDaemonAwareRuntime>>> {
 	return await createDaemonAwareRuntime({
 		servers: [normalizeEmbeddedServer(embeddedServer)],
 		name: embeddedName,

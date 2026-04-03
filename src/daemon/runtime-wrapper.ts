@@ -159,7 +159,7 @@ export async function createDaemonAwareRuntime(options: {
       const os = await import('node:os');
       const path = await import('node:path');
       const fs = await import('node:fs/promises');
-      configPath = path.join(os.default.homedir(), '.mcporter', 'generated', options.name, 'mcporter.json');
+      configPath = path.join(os.homedir(), '.mcporter', 'generated', options.name, 'mcporter.json');
       // Write embedded server definition if it doesn't exist
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       try {
@@ -190,8 +190,21 @@ export async function createDaemonAwareRuntime(options: {
         const { launchDaemonDetached } = await import('./launch.js');
         launchDaemonDetached({ configPath, socketPath: daemonPaths.socketPath, metadataPath: daemonPaths.metadataPath });
         // Wait briefly for daemon to start
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        await client.status();
+        let started = false;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+          try {
+            await client.status();
+            started = true;
+            break;
+          } catch {
+            // Daemon not ready yet, retry
+          }
+        }
+        if (!started) {
+          // Daemon didn't start in time — fall back to direct spawn
+          return base;
+        }
       } catch {
         // Daemon unavailable -- fall back to direct spawn
         return base;

@@ -18,7 +18,7 @@ export async function handleGenerateCli(args: string[], globalFlags: FlagMap): P
   if (parsed.excludeTools && parsed.excludeTools.length === 0) {
     throw new Error('--exclude-tools requires at least one tool name.');
   }
-  if (parsed.from && (parsed.command || parsed.description || parsed.name)) {
+  if (parsed.from && (parsed.command || parsed.description || parsed.name || parsed.set)) {
     throw new Error('--from cannot be combined with --command/--description/--name.');
   }
   if (parsed.dryRun && !parsed.from) {
