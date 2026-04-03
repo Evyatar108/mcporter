@@ -385,7 +385,7 @@ ${aliasSnippet ? `\t${aliasSnippet}` : ''}\t.action(async (cmdOpts) => {
 
 function renderOption(optionDoc: ToolOptionDoc, defaults?: Record<string, string>): string {
   const parser = optionParser(optionDoc.option);
-  const defaultValue = defaults?.[optionDoc.option.property];
+  const defaultValue = defaults?.[optionDoc.option.property] ?? defaults?.[optionDoc.option.cliName];
   const method = (optionDoc.option.required && !defaultValue) ? '.requiredOption' : '.option';
   const parts = [
     `\t${method}(${JSON.stringify(optionDoc.flagLabel)}, ${JSON.stringify(optionDoc.description)}`,
