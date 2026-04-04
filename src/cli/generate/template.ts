@@ -394,7 +394,32 @@ function renderOption(optionDoc: ToolOptionDoc, defaults?: Record<string, string
     parts.push(`, ${parser}`);
   }
   if (defaultValue !== undefined) {
-    parts.push(`, ${JSON.stringify(defaultValue)}`);
+    switch (optionDoc.option.type) {
+      case 'number':
+        parts.push(`, ${parseFloat(defaultValue) || 0}`);
+        break;
+      case 'boolean':
+        parts.push(`, ${defaultValue !== 'false'}`);
+        break;
+      case 'array': {
+        const items = defaultValue.split(',').map((v) => v.trim());
+        switch (optionDoc.option.arrayItemType) {
+          case 'number':
+            parts.push(`, ${JSON.stringify(items.map((v) => parseFloat(v) || 0))}`);
+            break;
+          case 'boolean':
+            parts.push(`, ${JSON.stringify(items.map((v) => v !== 'false'))}`);
+            break;
+          default:
+            parts.push(`, ${JSON.stringify(items)}`);
+            break;
+        }
+        break;
+      }
+      default:
+        parts.push(`, ${JSON.stringify(defaultValue)}`);
+        break;
+    }
   }
   parts.push(')');
   return parts.join('');

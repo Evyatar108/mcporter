@@ -49,36 +49,57 @@ class KeepAliveRuntime implements Runtime {
 
   async listTools(server: string, options?: ListToolsOptions): Promise<Awaited<ReturnType<Runtime['listTools']>>> {
     if (this.shouldUseDaemon(server)) {
-      return (await this.invokeWithRestart(server, 'listTools', () =>
-        this.daemon.listTools({
-          server,
-          includeSchema: options?.includeSchema,
-          autoAuthorize: options?.autoAuthorize,
-        })
-      )) as Awaited<ReturnType<Runtime['listTools']>>;
+      try {
+        return (await this.invokeWithRestart(server, 'listTools', () =>
+          this.daemon.listTools({
+            server,
+            includeSchema: options?.includeSchema,
+            autoAuthorize: options?.autoAuthorize,
+          })
+        )) as Awaited<ReturnType<Runtime['listTools']>>;
+      } catch (error) {
+        if (isDaemonStartupTimeout(error)) {
+          return this.base.listTools(server, options);
+        }
+        throw error;
+      }
     }
     return this.base.listTools(server, options);
   }
 
   async callTool(server: string, toolName: string, options?: CallOptions): Promise<unknown> {
     if (this.shouldUseDaemon(server)) {
-      return this.invokeWithRestart(server, 'callTool', () =>
-        this.daemon.callTool({
-          server,
-          tool: toolName,
-          args: options?.args,
-          timeoutMs: options?.timeoutMs,
-        })
-      );
+      try {
+        return await this.invokeWithRestart(server, 'callTool', () =>
+          this.daemon.callTool({
+            server,
+            tool: toolName,
+            args: options?.args,
+            timeoutMs: options?.timeoutMs,
+          })
+        );
+      } catch (error) {
+        if (isDaemonStartupTimeout(error)) {
+          return this.base.callTool(server, toolName, options);
+        }
+        throw error;
+      }
     }
     return this.base.callTool(server, toolName, options);
   }
 
   async listResources(server: string, options?: Partial<ListResourcesRequest['params']>): Promise<unknown> {
     if (this.shouldUseDaemon(server)) {
-      return this.invokeWithRestart(server, 'listResources', () =>
-        this.daemon.listResources({ server, params: options ?? {} })
-      );
+      try {
+        return await this.invokeWithRestart(server, 'listResources', () =>
+          this.daemon.listResources({ server, params: options ?? {} })
+        );
+      } catch (error) {
+        if (isDaemonStartupTimeout(error)) {
+          return this.base.listResources(server, options);
+        }
+        throw error;
+      }
     }
     return this.base.listResources(server, options);
   }
@@ -94,9 +115,10 @@ class KeepAliveRuntime implements Runtime {
     }
     if (this.shouldUseDaemon(server)) {
       await this.daemon.closeServer({ server }).catch(() => {});
-      return;
     }
-    await this.base.close(server);
+    // Always close the base runtime too — it may have been used as a
+    // fallback when the daemon was unavailable (startup timeout).
+    await this.base.close(server).catch(() => {});
   }
 
   private shouldUseDaemon(server: string): boolean {
@@ -107,6 +129,11 @@ class KeepAliveRuntime implements Runtime {
     try {
       return await action();
     } catch (error) {
+      // Daemon startup timeout is not retriable — throw immediately so the
+      // caller can fall back to the base (direct-spawn) runtime.
+      if (isDaemonStartupTimeout(error)) {
+        throw error;
+      }
       if (!shouldRestartDaemonServer(error)) {
         throw error;
       }
@@ -226,6 +253,10 @@ export async function createDaemonAwareRuntime(options: {
 }
 
 const NON_FATAL_CODES = new Set([ErrorCode.InvalidRequest, ErrorCode.MethodNotFound, ErrorCode.InvalidParams]);
+
+function isDaemonStartupTimeout(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('Timeout while waiting for MCPorter daemon');
+}
 
 function shouldRestartDaemonServer(error: unknown): boolean {
   if (!error) {

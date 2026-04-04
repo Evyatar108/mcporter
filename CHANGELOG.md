@@ -1,6 +1,8 @@
 # mcporter Changelog
 
-## [0.8.2] - Unreleased
+## [0.8.2] - Unreleased (branch: `cli-manager`)
+
+> **Note:** These changes live on the `cli-manager` branch, forked for use by the `cli-manager` plugin in `ai-developer-toolkit`. Existing tests have **not yet been re-run** against these changes — run `pnpm install && pnpm test` before merging.
 
 ### CLI — `generate-cli`
 - **Always bracket notation**: Generated CLIs now use `args["property"]` instead of `args.property` for tool arguments, fixing hyphenated property names like `cluster-uri` that broke with dot notation.

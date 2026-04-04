@@ -78,6 +78,9 @@ async function bundleWithRolldown({
     format: runtimeKind === 'bun' ? 'esm' : 'cjs',
     sourcemap: false,
     minify,
+    // Generated CLIs may contain dynamic imports (daemon-aware runtime, SDK).
+    // Disable code splitting so rolldown writes a single output file.
+    codeSplitting: false,
   });
   await markExecutable(absTarget);
   return absTarget;
