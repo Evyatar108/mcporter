@@ -65,6 +65,8 @@ export function renderTemplate({
     "import { Command } from 'commander';",
     "import { createServerProxy, createDaemonAwareRuntime } from 'mcporter';",
     "import { createCallResult } from 'mcporter';",
+    "import { readFile as _fsReadFile } from 'node:fs/promises';",
+    "import { resolve as _pathResolve } from 'node:path';",
   ].join('\n');
   // Default lifecycle to keep-alive for generated CLIs
   const defWithLifecycle = definition.lifecycle ? definition : { ...definition, lifecycle: { mode: 'keep-alive' as const } };
@@ -80,7 +82,7 @@ export function renderTemplate({
       options: tool.options,
       requiredOnly: true,
       colorize: false,
-      flagExtras: [{ text: '--raw <json>' }],
+      flagExtras: [{ text: '--raw <json>' }, { text: '--raw-file <path>' }],
     }),
   }));
   const renderedTools = toolDocs.map((entry) => ({
@@ -291,6 +293,17 @@ async function invokeWithTimeout<T>(call: Promise<T>, timeout: number): Promise<
 \t}
 }
 
+async function readInputFile(filePath: string): Promise<string> {
+\tif (filePath === '-') {
+\t\tconst chunks: Buffer[] = [];
+\t\tfor await (const chunk of process.stdin) {
+\t\t\tchunks.push(chunk);
+\t\t}
+\t\treturn Buffer.concat(chunks).toString('utf8');
+\t}
+\treturn await _fsReadFile(_pathResolve(filePath), 'utf8');
+}
+
 async function runCli(): Promise<void> {
 \tconst args = process.argv.slice(2);
 \tif (args.length === 0) {
@@ -329,7 +342,7 @@ export function renderToolCommand(
       options: tool.options,
       requiredOnly: true,
       colorize: false,
-      flagExtras: [{ text: '--raw <json>' }],
+      flagExtras: [{ text: '--raw <json>' }, { text: '--raw-file <path>' }],
     });
   const buildArgs = tool.options
     .map((option) => {
@@ -343,6 +356,20 @@ export function renderToolCommand(
       return `if (${source} !== undefined) args[${JSON.stringify(option.property)}] = ${source};`;
     })
     .join('\n\t\t');
+  const requiredChecks = tool.options
+    .filter((option) => {
+      const hasDefault = defaults?.[option.property] ?? defaults?.[option.cliName];
+      return option.required && !hasDefault;
+    })
+    .map((option) => {
+      const camelCaseProp = option.cliName
+        .split('-')
+        .filter(Boolean)
+        .map((segment, index) => (index === 0 ? segment : `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`))
+        .join('');
+      return `if (cmdOpts.${camelCaseProp} === undefined) missing.push('--${option.cliName}');`;
+    })
+    .join('\n\t\t\t');
   const flagUsage = doc.flagUsage;
   const optionLines = doc.optionDocs.map((entry) => renderOption(entry, defaults)).join('\n');
   const summary = flagUsage ? `${commandName} ${flagUsage}` : commandName;
@@ -362,9 +389,34 @@ export function renderToolCommand(
 \t.summary(${JSON.stringify(summary)})
 \t.description(${JSON.stringify(description)})
 ${usageSnippet ? `\t${usageSnippet}` : ''}\t.option('--raw <json>', 'Provide raw JSON arguments to the tool, bypassing flag parsing.')
+\t.option('--raw-file <path>', 'Read raw JSON arguments from a file (use - for stdin).')
 ${optionLines ? `\n${optionLines}` : ''}
 ${aliasSnippet ? `\t${aliasSnippet}` : ''}\t.action(async (cmdOpts) => {
 \t\tconst globalOptions = program.opts();
+\t\tif (cmdOpts.rawFile) {
+\t\t\tcmdOpts.raw = await readInputFile(cmdOpts.rawFile);
+\t\t}
+\t\tfor (const [key, value] of Object.entries(cmdOpts)) {
+\t\t\tif (key === 'raw' || key === 'rawFile') continue;
+\t\t\tif (typeof value === 'string' && value.startsWith('@@')) {
+\t\t\t\tcmdOpts[key] = value.slice(1);
+\t\t\t} else if (typeof value === 'string' && value.startsWith('@') && value.length > 1) {
+\t\t\t\ttry {
+\t\t\t\t\tcmdOpts[key] = await readInputFile(value.slice(1));
+\t\t\t\t} catch (err: any) {
+\t\t\t\t\tconsole.error(\`error: cannot read file '\${value.slice(1)}' for --\${key}: \${err.message}\`);
+\t\t\t\t\tprocess.exit(1);
+\t\t\t\t}
+\t\t\t}
+\t\t}
+\t\tif (!cmdOpts.raw) {
+\t\t\tconst missing: string[] = [];
+\t\t\t${requiredChecks}
+\t\t\tif (missing.length > 0) {
+\t\t\t\tconsole.error('error: required option(s) ' + missing.map((f: string) => "'" + f + "'").join(', ') + ' not specified');
+\t\t\t\tprocess.exit(1);
+\t\t\t}
+\t\t}
 \t\tconst runtime = await ensureRuntime();
 \t\tconst serverName = embeddedName;
 \t\tconst proxy = createServerProxy(runtime, serverName, {
@@ -386,7 +438,7 @@ ${aliasSnippet ? `\t${aliasSnippet}` : ''}\t.action(async (cmdOpts) => {
 function renderOption(optionDoc: ToolOptionDoc, defaults?: Record<string, string>): string {
   const parser = optionParser(optionDoc.option);
   const defaultValue = defaults?.[optionDoc.option.property] ?? defaults?.[optionDoc.option.cliName];
-  const method = (optionDoc.option.required && !defaultValue) ? '.requiredOption' : '.option';
+  const method = '.option';
   const parts = [
     `\t${method}(${JSON.stringify(optionDoc.flagLabel)}, ${JSON.stringify(optionDoc.description)}`,
   ];
