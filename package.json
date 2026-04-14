@@ -1,6 +1,6 @@
 {
   "name": "@gim-home/mcporter",
-  "version": "0.8.2",
+  "version": "0.8.1-fork.1",
   "description": "TypeScript runtime and CLI for connecting to configured Model Context Protocol servers.",
   "packageManager": "pnpm@10.22.0",
   "pnpm": {
