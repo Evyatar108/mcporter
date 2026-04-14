@@ -1,6 +1,6 @@
 {
-  "name": "mcporter",
-  "version": "0.8.1",
+  "name": "@gim-home/mcporter",
+  "version": "0.8.2",
   "description": "TypeScript runtime and CLI for connecting to configured Model Context Protocol servers.",
   "packageManager": "pnpm@10.22.0",
   "pnpm": {
@@ -96,7 +96,7 @@
   "author": "Sweetistics",
   "license": "MIT",
   "publishConfig": {
-    "access": "public"
+    "registry": "https://npm.pkg.github.com"
   },
   "devEngines": {
     "runtime": [
