@@ -25,7 +25,6 @@ import type {
 import {
   buildErrorResponse,
   ensureManaged,
-  evictIdleServers,
   markActivity,
   type ServerActivity,
 } from './request-utils.js';
@@ -83,11 +82,6 @@ export async function runDaemonHost(options: DaemonHostOptions): Promise<void> {
   for (const definition of keepAliveDefinitions) {
     activity.set(definition.name, { connected: false });
   }
-
-  const idleWatcher = setInterval(() => {
-    void evictIdleServers(runtime, managedServers, activity);
-  }, 30_000);
-  idleWatcher.unref();
 
   logEvent(logContext, 'Daemon host started.');
 
@@ -180,7 +174,6 @@ export async function runDaemonHost(options: DaemonHostOptions): Promise<void> {
     }
     shuttingDown = true;
     logEvent(logContext, 'Shutting down daemon host.');
-    clearInterval(idleWatcher);
     server.close();
     await runtime.close().catch(() => {});
     await disposeLogContext(logContext).catch(() => {});

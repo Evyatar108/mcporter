@@ -128,11 +128,4 @@ export function isKeepAliveServer(definition: ServerDefinition | undefined): boo
   return definition?.lifecycle?.mode === 'keep-alive';
 }
 
-export function keepAliveIdleTimeout(definition: ServerDefinition): number | undefined {
-  if (definition.lifecycle?.mode !== 'keep-alive') {
-    return undefined;
-  }
-  return definition.lifecycle.idleTimeoutMs;
-}
-
 export { DEFAULT_KEEP_ALIVE };

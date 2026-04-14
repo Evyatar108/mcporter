@@ -22,7 +22,7 @@ read_when:
   - Hosts a long-lived `McpRuntime`.
   - Listens on a Unix domain socket (per-login path, chmod 600).
   - Exposes a minimal JSON-RPC interface that mirrors the existing `list/call/resources` APIs so CLI commands can proxy requests.
-  - Lazily connects keep-alive servers on first use and keeps transports open until shutdown or idle timeout.
+  - Lazily connects keep-alive servers on first use and keeps transports open until explicit shutdown.
 
 - **Client shim (CLI side):**
   - When a command targets a keep-alive server:
@@ -48,7 +48,7 @@ read_when:
 
 - **Auto start:** First call requiring the daemon triggers a lightweight bootstrap (fork/exec via `child_process.spawn` inside the CLI). We ensure the original command waits for the socket to become available (with a short timeout).
 - **Auto restart:** The client shim treats `ECONNREFUSED`/broken pipe as a signal that the daemon died. It retries once by re-launching the daemon before surfacing the error.
-- **Idle timeout:** Each keep-alive server can specify `idleTimeoutMs` (default `null` = never). The daemon tracks last activity timestamps and auto-closes transports (and associated external processes) after the idle window. A global `daemonIdleTimeoutMs` can shut down the entire daemon after long inactivity.
+- **No idle timeout:** Keep-alive servers stay connected until explicit `mcporter daemon stop` or machine reboot. The daemon never auto-closes transports.
 - **Logging:** Daemon writes structured logs under `~/.mcporter/logs/daemon.log` plus per-server logs for STDIO stderr so users can debug crashing servers.
 
 ## Testing Plan
